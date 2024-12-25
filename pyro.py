@@ -11,7 +11,7 @@ from .qick_asm import QickConfig
 # but it doesn't need to be anything, so we use None as a dummy value
 try:
     from .qick import QickSoc
-except:
+except ImportError:
     QickSoc = None
 
 
