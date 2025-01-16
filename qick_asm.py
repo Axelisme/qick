@@ -2042,9 +2042,24 @@ class AcquireMixin:
                                     % (count, new_points, total_count)
                                 )
                             # use reshape to view the acc_buf array in a shape that matches the raw data
-                            self.acc_buf[ii].reshape((-1, 2))[
-                                count * nreads : (count + new_points) * nreads
-                            ] = d[ii]
+                            # self.acc_buf[ii].reshape((-1,2))[count*nreads:(count+new_points)*nreads] = d[ii]
+                            try:
+                                self.acc_buf[ii].reshape((-1, 2))[
+                                    count * nreads : (count + new_points) * nreads
+                                ] = d[ii]
+                            except Exception as e:
+                                print(
+                                    count, new_points, nreads, d[ii].shape, total_count
+                                )
+                                print(e)
+                                shape = np.shape(
+                                    self.acc_buf[ii].reshape((-1, 2))[
+                                        count * nreads : (count + new_points) * nreads
+                                    ]
+                                )
+                                self.acc_buf[ii].reshape((-1, 2))[
+                                    count * nreads : (count + new_points) * nreads
+                                ] = d[ii][: shape[0]]
                         count += new_points
                         self.stats.append(s)
                         pbar.update(new_points)
