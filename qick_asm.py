@@ -1933,6 +1933,7 @@ class AcquireMixin:
         angle=None,
         progress=True,
         remove_offset=True,
+        ret_std=False,
     ):
         """Acquire data using the accumulated readout.
 
@@ -2002,8 +2003,14 @@ class AcquireMixin:
             else:
                 hidereps = False
 
+        if ret_std:
+            assert (
+                soft_avgs >= 30
+            ), "at least 30 rounds are required to calculate standard deviation"
+
         # avg_d doesn't have a specific shape here, so that it's easier for child programs to write custom _average_buf
         avg_d = None
+        std_d = None
         for ir in tqdm(range(soft_avgs), disable=hiderounds):
             # Configure and enable buffer capture.
             self.config_bufs(soc, enable_avg=True, enable_buf=False)
@@ -2069,11 +2076,24 @@ class AcquireMixin:
                 for ii, d in enumerate(round_d):
                     avg_d[ii] += d
 
+            if ret_std:
+                if std_d is None:
+                    std_d = [d**2 for d in round_d]
+                else:
+                    for ii, d in enumerate(round_d):
+                        std_d[ii] += d**2
+
         # divide total by rounds
         for d in avg_d:
             d /= soft_avgs
 
-        return avg_d
+        if ret_std:
+            for i in range(len(std_d)):
+                std_d[i] = np.sqrt(std_d[i] / soft_avgs - avg_d[i] ** 2)
+                std_d[i] *= np.sqrt(soft_avgs / (soft_avgs - 1))  # unbiased estimator
+            return avg_d, std_d
+        else:
+            return avg_d
 
     def _ro_offset(self, ch, chcfg):
         """Computes the IQ offset expected from this readout.
