@@ -4,25 +4,27 @@ This contains tools for managing the board configuration and the base class for 
 The assembly language for QICK programs is defined separately for the v1 and v2 tProcessors.
 """
 
-import logging
-import numpy as np
-import json
-from collections import namedtuple, OrderedDict, defaultdict
-import operator
 import functools
+import json
+import logging
+import operator
 from abc import ABC, abstractmethod
+from collections import OrderedDict, defaultdict, namedtuple
+
+import numpy as np
 from tqdm.auto import tqdm
 
-from qick import obtain, get_version
+from qick import get_version, obtain
+
 from .helpers import (
-    to_int,
-    cosine,
-    gauss,
-    triang,
     DRAG,
+    cosine,
     decode_array,
+    gauss,
     nqz,
     nyquist_image,
+    to_int,
+    triang,
 )
 
 logger = logging.getLogger(__name__)
@@ -2003,11 +2005,6 @@ class AcquireMixin:
             else:
                 hidereps = False
 
-        if ret_std:
-            assert (
-                soft_avgs >= 30
-            ), "at least 30 rounds are required to calculate standard deviation"
-
         # avg_d doesn't have a specific shape here, so that it's easier for child programs to write custom _average_buf
         avg_d = None
         std_d = None
@@ -2067,13 +2064,23 @@ class AcquireMixin:
             # if we're thresholding, apply the threshold before averaging
             if threshold is None:
                 d_reps = self.acc_buf
-                round_d = self._average_buf(
-                    d_reps,
-                    self.reads_per_shot,
-                    length_norm=True,
-                    remove_offset=remove_offset,
-                )
+                if ret_std:
+                    round_d, round_std = self._average_buf(
+                        d_reps,
+                        self.reads_per_shot,
+                        length_norm=True,
+                        remove_offset=remove_offset,
+                        ret_std=True,
+                    )
+                else:
+                    round_d = self._average_buf(
+                        d_reps,
+                        self.reads_per_shot,
+                        length_norm=True,
+                        remove_offset=remove_offset,
+                    )
             else:
+                assert not ret_std, "ret_std is not supported with thresholding"
                 d_reps = [np.zeros_like(d) for d in self.acc_buf]
                 self.shots = self._apply_threshold(
                     self.acc_buf, threshold, angle, remove_offset=remove_offset
@@ -2093,10 +2100,10 @@ class AcquireMixin:
 
             if ret_std:
                 if std_d is None:
-                    std_d = [d**2 for d in round_d]
+                    std_d = [d**2 + s**2 for d, s in zip(round_d, round_std)]
                 else:
-                    for ii, d in enumerate(round_d):
-                        std_d[ii] += d**2
+                    for ii, (d, s) in enumerate(zip(round_d, round_std)):
+                        std_d[ii] += d**2 + s**2
 
         # divide total by rounds
         for d in avg_d:
@@ -2105,7 +2112,6 @@ class AcquireMixin:
         if ret_std:
             for i in range(len(std_d)):
                 std_d[i] = np.sqrt(std_d[i] / soft_avgs - avg_d[i] ** 2)
-                std_d[i] *= np.sqrt(soft_avgs / (soft_avgs - 1))  # unbiased estimator
             return avg_d, std_d
         else:
             return avg_d
@@ -2145,6 +2151,7 @@ class AcquireMixin:
         reads_per_shot: list,
         length_norm: bool = True,
         remove_offset: bool = True,
+        ret_std: bool = False,
     ) -> np.ndarray:
         """
         calculate averaged data in a data acquire round. This function should be overwritten in the child qick program
@@ -2157,16 +2164,26 @@ class AcquireMixin:
         :return: averaged iq data after each round.
         """
         avg_d = []
+        if ret_std:
+            std_d = []
         for i_ch, (ch, ro) in enumerate(self.ro_chs.items()):
             # average over the avg_level
             avg = d_reps[i_ch].sum(axis=self.avg_level) / self.loop_dims[self.avg_level]
+            if ret_std:
+                std = d_reps[i_ch].std(axis=self.avg_level)
             if length_norm and not ro["edge_counting"]:
                 avg /= ro["length"]
+                if ret_std:
+                    std /= ro["length"]
                 if remove_offset:
                     avg -= self._ro_offset(ch, ro.get("ro_config"))
             # the reads_per_shot axis should be the first one
             avg_d.append(np.moveaxis(avg, -2, 0))
+            if ret_std:
+                std_d.append(np.moveaxis(std, -2, 0))
 
+        if ret_std:
+            return avg_d, std_d
         return avg_d
 
     def _apply_threshold(self, acc_buf, threshold, angle, remove_offset):
