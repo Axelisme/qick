@@ -4,7 +4,6 @@ Several helper classes for writing qubit experiments.
 
 from typing import List, Union
 import numpy as np
-from qick import obtain
 from .asm_v1 import QickProgram, AcquireProgram, QickRegister, QickRegisterManagerMixin
 
 
@@ -83,6 +82,7 @@ class AveragerProgram(AcquireProgram):
         readouts_per_experiment=None,
         save_experiments=None,
         ret_std=False,
+        round_callback=None,
         **kwargs,
     ):
         """
@@ -114,12 +114,17 @@ class AveragerProgram(AcquireProgram):
         if readouts_per_experiment is not None:
             self.set_reads_per_shot(readouts_per_experiment)
 
+        data = super().acquire(
+            soc,
+            soft_avgs=self.soft_avgs,
+            ret_std=ret_std,
+            round_callback=round_callback,
+            **kwargs,
+        )
         if ret_std:
-            avg_d, std_d = super().acquire(
-                soc, soft_avgs=self.soft_avgs, ret_std=True, **kwargs
-            )
+            avg_d, std_d = data
         else:
-            avg_d = super().acquire(soc, soft_avgs=self.soft_avgs, **kwargs)
+            avg_d = data
 
         # reformat the data into separate I and Q arrays
         # save results to class in case you want to look at it later or for analysis
@@ -281,6 +286,7 @@ class RAveragerProgram(AcquireProgram):
         readouts_per_experiment=None,
         save_experiments=None,
         ret_std=False,
+        round_callback=None,
         **kwargs,
     ):
         """
@@ -312,12 +318,17 @@ class RAveragerProgram(AcquireProgram):
         if readouts_per_experiment is not None:
             self.set_reads_per_shot(readouts_per_experiment)
 
+        data = super().acquire(
+            soc,
+            soft_avgs=self.soft_avgs,
+            ret_std=ret_std,
+            round_callback=round_callback,
+            **kwargs,
+        )
         if ret_std:
-            avg_d, std_d = super().acquire(
-                soc, soft_avgs=self.soft_avgs, ret_std=True, **kwargs
-            )
+            avg_d, std_d = data
         else:
-            avg_d = super().acquire(soc, soft_avgs=self.soft_avgs, **kwargs)
+            avg_d = data
 
         # reformat the data into separate I and Q arrays
         # save results to class in case you want to look at it later or for analysis

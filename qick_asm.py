@@ -9,7 +9,7 @@ import json
 import logging
 import operator
 from abc import ABC, abstractmethod
-from collections import OrderedDict, defaultdict, namedtuple
+from collections import OrderedDict, defaultdict
 
 import numpy as np
 from tqdm.auto import tqdm
@@ -298,7 +298,7 @@ class QickConfig:
         int
             frequency step multiplier for the first channel
         """
-        refclk = self["refclk_freq"]
+        # refclk = self["refclk_freq"]
         # Calculate least common multiple of sampling frequencies.
 
         alldicts = [dict1] + other_dicts
@@ -824,7 +824,6 @@ class QickConfig:
         elif sel != "product":
             raise RuntimeError(
                 "sel parameter was specified for readout %d, which doesn't support this parameter"
-                % (ch)
             )
         # calculate phase register
         if "b_phase" in rocfg:
@@ -833,7 +832,6 @@ class QickConfig:
         elif phase != 0:
             raise RuntimeError(
                 "phase parameter was specified for readout %d, which doesn't support this parameter"
-                % (ch)
             )
         return ro_regs
 
@@ -925,7 +923,7 @@ class QickConfig:
                 # it's fine to set two PFB outputs to identical frequencies
                 continue
             if cfg2["pfb_ch"] == cfg1["pfb_ch"]:
-                p = {k: [x[k] for x in [cfg1, cfg2]] for k in ["f_rounded", "f_folded"]}
+                # p = {k: [x[k] for x in [cfg1, cfg2]] for k in ["f_rounded", "f_folded"]}
                 message = []
                 message.append("Two tones on same PFB channel:")
                 message.append(
@@ -1271,7 +1269,7 @@ class AbsQickProgram(ABC):
         # TODO: check this math
         if cfg["length"] > 2 ** (31 - 15):
             logger.warning(
-                f"With the given readout length there is a possibility that the sum buffer will overflow giving invalid results."
+                "With the given readout length there is a possibility that the sum buffer will overflow giving invalid results."
             )
 
         # Edge counting mode
@@ -1936,6 +1934,7 @@ class AcquireMixin:
         progress=True,
         remove_offset=True,
         ret_std=False,
+        round_callback=None,
     ):
         """Acquire data using the accumulated readout.
 
@@ -1987,7 +1986,7 @@ class AcquireMixin:
         # configure tproc for internal/external start
         soc.start_src(start_src)
 
-        n_ro = len(self.ro_chs)
+        # n_ro = len(self.ro_chs)
 
         total_count = functools.reduce(operator.mul, self.loop_dims)
         self.acc_buf = [
@@ -2007,7 +2006,7 @@ class AcquireMixin:
 
         # avg_d doesn't have a specific shape here, so that it's easier for child programs to write custom _average_buf
         avg_d = None
-        std_d = None
+        std2_d = None
         for ir in tqdm(range(soft_avgs), disable=hiderounds):
             # Configure and enable buffer capture.
             self.config_bufs(soc, enable_avg=True, enable_buf=False)
@@ -2099,20 +2098,23 @@ class AcquireMixin:
                     avg_d[ii] += d
 
             if ret_std:
-                if std_d is None:
-                    std_d = [d**2 + s**2 for d, s in zip(round_d, round_std)]
+                if std2_d is None:
+                    std2_d = [d**2 + s**2 for d, s in zip(round_d, round_std)]
                 else:
                     for ii, (d, s) in enumerate(zip(round_d, round_std)):
-                        std_d[ii] += d**2 + s**2
+                        std2_d[ii] += d**2 + s**2
+
+            if round_callback is not None:
+                round_callback(ir, avg_d, std2_d)
 
         # divide total by rounds
         for d in avg_d:
             d /= soft_avgs
 
         if ret_std:
-            for i in range(len(std_d)):
-                std_d[i] = np.sqrt(std_d[i] / soft_avgs - avg_d[i] ** 2)
-            return avg_d, std_d
+            for i in range(len(std2_d)):
+                std2_d[i] = np.sqrt(std2_d[i] / soft_avgs - avg_d[i] ** 2)
+            return avg_d, std2_d
         else:
             return avg_d
 
