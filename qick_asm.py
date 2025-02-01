@@ -2105,7 +2105,11 @@ class AcquireMixin:
                         std2_d[ii] += d**2 + s**2
 
             if round_callback is not None:
-                round_callback(ir, avg_d, std2_d)
+                cur_avg = [d / max(1, ir) for d in avg_d]
+                if callable(round_callback):
+                    round_callback(ir, cur_avg)
+                else:
+                    round_callback.oneway_callback(ir, cur_avg)
 
         # divide total by rounds
         for d in avg_d:
