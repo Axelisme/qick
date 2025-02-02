@@ -67,50 +67,50 @@ if (
         from .qick import QickSoc
     except Exception as e:
         print("Could not import QickSoc:", e)
-else:
-    import numpy as np
-    import Pyro4
+# else:
+#     import numpy as np
+#     import Pyro4
 
-    # if we're not on a Zynq, we need to mock the QickSoc class
-    SocIp = list
+#     # if we're not on a Zynq, we need to mock the QickSoc class
+#     SocIp = list
 
-    class QickSoc:
-        def __init__(self):
-            self.autoproxy = []
+#     class QickSoc:
+#         def __init__(self):
+#             self.autoproxy = []
 
-        @Pyro4.expose
-        def get_cfg(self):
-            return {}
+#         @Pyro4.expose
+#         def get_cfg(self):
+#             return {}
 
-        def adcfreq(self, fpt, *args, **kwargs):
-            return fpt
+#         def adcfreq(self, fpt, *args, **kwargs):
+#             return fpt
 
-        def us2cycles(self, us, *args, **kwargs):
-            if isinstance(us, np.ndarray):
-                return (us * 1e3).astype(int)
-            return int(us * 1e3)
+#         def us2cycles(self, us, *args, **kwargs):
+#             if isinstance(us, np.ndarray):
+#                 return (us * 1e3).astype(int)
+#             return int(us * 1e3)
 
-        def cycles2us(self, cycles, *args, **kwargs):
-            if isinstance(cycles, np.ndarray):
-                return cycles.astype(float) / 1e3
-            return float(cycles) / 1e3
+#         def cycles2us(self, cycles, *args, **kwargs):
+#             if isinstance(cycles, np.ndarray):
+#                 return cycles.astype(float) / 1e3
+#             return float(cycles) / 1e3
 
-    class QickConfig:
-        def __init__(self, cfg=None):
-            pass
+#     class QickConfig:
+#         def __init__(self, cfg=None):
+#             pass
 
-        def __repr__(self):
-            return "Dummy QickConfig"
+#         def __repr__(self):
+#             return "Dummy QickConfig"
 
-        def adcfreq(self, fpt, *args, **kwargs):
-            return fpt
+#         def adcfreq(self, fpt, *args, **kwargs):
+#             return fpt
 
-        def us2cycles(self, us, *args, **kwargs):
-            if isinstance(us, np.ndarray):
-                return (us * 1e3).astype(int)
-            return int(us * 1e3)
+#         def us2cycles(self, us, *args, **kwargs):
+#             if isinstance(us, np.ndarray):
+#                 return (us * 1e3).astype(int)
+#             return int(us * 1e3)
 
-        def cycles2us(self, cycles, *args, **kwargs):
-            if isinstance(cycles, np.ndarray):
-                return cycles.astype(float) / 1e3
-            return float(cycles) / 1e3
+#         def cycles2us(self, cycles, *args, **kwargs):
+#             if isinstance(cycles, np.ndarray):
+#                 return cycles.astype(float) / 1e3
+#             return float(cycles) / 1e3
