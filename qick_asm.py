@@ -1935,6 +1935,7 @@ class AcquireMixin:
         remove_offset=True,
         ret_std=False,
         round_callback=None,
+        callback_period=100,
     ):
         """Acquire data using the accumulated readout.
 
@@ -2104,7 +2105,7 @@ class AcquireMixin:
                     for ii, (d, s) in enumerate(zip(round_d, round_std)):
                         std2_d[ii] += d**2 + s**2
 
-            if round_callback is not None:
+            if round_callback is not None and ir % callback_period == 0:
                 cur_avg = [d / max(1, ir) for d in avg_d]
                 if callable(round_callback):
                     round_callback(ir, cur_avg)
