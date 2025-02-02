@@ -1,8 +1,6 @@
 import os
 import platform
 
-import Pyro4
-
 
 def get_version():
     """Read library version from qick_lib/qick/VERSION (a text file containing only the version number).
@@ -71,6 +69,7 @@ if (
         print("Could not import QickSoc:", e)
 else:
     import numpy as np
+    import Pyro4
 
     # if we're not on a Zynq, we need to mock the QickSoc class
     SocIp = list

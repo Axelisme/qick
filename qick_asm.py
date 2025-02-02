@@ -2370,6 +2370,8 @@ class AcquireMixin:
         start_src="internal",
         progress=True,
         remove_offset=True,
+        round_callback=None,
+        callback_period=100,
     ):
         """Acquire data using the decimating readout.
 
@@ -2426,7 +2428,7 @@ class AcquireMixin:
             )
 
         # for each soft average, run and acquire decimated data
-        for ii in tqdm(range(soft_avgs), disable=not progress):
+        for ir in tqdm(range(soft_avgs), disable=not progress):
             # buffer for accumulated data (for convenience/debug)
             self.acc_buf = []
 
@@ -2462,6 +2464,12 @@ class AcquireMixin:
                         ).reshape((*self.loop_dims, ro["trigs"], 2))
                     )
                 )
+
+            if round_callback is not None and ir % callback_period == 0:
+                if callable(round_callback):
+                    round_callback(ir)
+                else:
+                    round_callback.oneway_callback(ir)
 
         onetrig = all([ro["trigs"] == 1 for ro in self.ro_chs.values()])
 
