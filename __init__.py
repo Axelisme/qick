@@ -1,6 +1,8 @@
 import os
 import platform
 
+DRY_RUN = False
+
 
 def get_version():
     """Read library version from qick_lib/qick/VERSION (a text file containing only the version number).
@@ -67,50 +69,51 @@ if (
         from .qick import QickSoc
     except Exception as e:
         print("Could not import QickSoc:", e)
-# else:
-#     import numpy as np
-#     import Pyro4
 
-#     # if we're not on a Zynq, we need to mock the QickSoc class
-#     SocIp = list
+if DRY_RUN:
+    import numpy as np
+    import Pyro4
 
-#     class QickSoc:
-#         def __init__(self):
-#             self.autoproxy = []
+    # if we're not on a Zynq, we need to mock the QickSoc class
+    SocIp = list
 
-#         @Pyro4.expose
-#         def get_cfg(self):
-#             return {}
+    class QickSoc:
+        def __init__(self):
+            self.autoproxy = []
 
-#         def adcfreq(self, fpt, *args, **kwargs):
-#             return fpt
+        @Pyro4.expose
+        def get_cfg(self):
+            return {}
 
-#         def us2cycles(self, us, *args, **kwargs):
-#             if isinstance(us, np.ndarray):
-#                 return (us * 1e3).astype(int)
-#             return int(us * 1e3)
+        def adcfreq(self, fpt, *args, **kwargs):
+            return fpt
 
-#         def cycles2us(self, cycles, *args, **kwargs):
-#             if isinstance(cycles, np.ndarray):
-#                 return cycles.astype(float) / 1e3
-#             return float(cycles) / 1e3
+        def us2cycles(self, us, *args, **kwargs):
+            if isinstance(us, np.ndarray):
+                return (us * 1e3).astype(int)
+            return int(us * 1e3)
 
-#     class QickConfig:
-#         def __init__(self, cfg=None):
-#             pass
+        def cycles2us(self, cycles, *args, **kwargs):
+            if isinstance(cycles, np.ndarray):
+                return cycles.astype(float) / 1e3
+            return float(cycles) / 1e3
 
-#         def __repr__(self):
-#             return "Dummy QickConfig"
+    class QickConfig:
+        def __init__(self, cfg=None):
+            pass
 
-#         def adcfreq(self, fpt, *args, **kwargs):
-#             return fpt
+        def __repr__(self):
+            return "Dummy QickConfig"
 
-#         def us2cycles(self, us, *args, **kwargs):
-#             if isinstance(us, np.ndarray):
-#                 return (us * 1e3).astype(int)
-#             return int(us * 1e3)
+        def adcfreq(self, fpt, *args, **kwargs):
+            return fpt
 
-#         def cycles2us(self, cycles, *args, **kwargs):
-#             if isinstance(cycles, np.ndarray):
-#                 return cycles.astype(float) / 1e3
-#             return float(cycles) / 1e3
+        def us2cycles(self, us, *args, **kwargs):
+            if isinstance(us, np.ndarray):
+                return (us * 1e3).astype(int)
+            return int(us * 1e3)
+
+        def cycles2us(self, cycles, *args, **kwargs):
+            if isinstance(cycles, np.ndarray):
+                return cycles.astype(float) / 1e3
+            return float(cycles) / 1e3
