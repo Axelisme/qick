@@ -13,6 +13,7 @@ from collections import OrderedDict, defaultdict
 
 import numpy as np
 from tqdm.auto import tqdm
+import Pyro4
 
 from qick import get_version, obtain
 
@@ -2105,12 +2106,19 @@ class AcquireMixin:
                     for ii, (d, s) in enumerate(zip(round_d, round_std)):
                         std2_d[ii] += d**2 + s**2
 
+            # callback
             if round_callback is not None and ir % callback_period == 0:
                 cur_avg = [d / max(1, ir) for d in avg_d]
                 if callable(round_callback):
+                    # local callback
                     round_callback(ir, cur_avg)
                 else:
-                    round_callback.oneway_callback(ir, cur_avg)
+                    # remote callback
+                    round_callback._pyroTimeout = 1.0  # s
+                    try:
+                        round_callback.oneway_callback(ir, cur_avg)
+                    except Pyro4.errors.CommunicationError as e:
+                        print("Callback failed:", e)
 
         # divide total by rounds
         for d in avg_d:
