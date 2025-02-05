@@ -13,7 +13,6 @@ from collections import OrderedDict, defaultdict
 
 import numpy as np
 from tqdm.auto import tqdm
-import Pyro4
 
 from qick import get_version, obtain
 
@@ -29,6 +28,21 @@ from .helpers import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def run_callback(callback, *args, **kwargs):
+    import Pyro4
+
+    if callable(callback):
+        # local callback
+        callback(*args, **kwargs)
+    else:
+        # remote callback
+        callback._pyroTimeout = 1.0  # s
+        try:
+            callback.oneway_callback(*args, **kwargs)
+        except Pyro4.errors.CommunicationError as e:
+            print("Callback failed:", e)
 
 
 class QickConfig:
@@ -2107,18 +2121,11 @@ class AcquireMixin:
                         std2_d[ii] += d**2 + s**2
 
             # callback
-            if round_callback is not None and ir % callback_period == 0:
+            if round_callback is not None and (
+                (ir + 1) % callback_period == 0 or ir == soft_avgs - 1
+            ):
                 cur_avg = [d / max(1, ir) for d in avg_d]
-                if callable(round_callback):
-                    # local callback
-                    round_callback(ir, cur_avg)
-                else:
-                    # remote callback
-                    round_callback._pyroTimeout = 1.0  # s
-                    try:
-                        round_callback.oneway_callback(ir, cur_avg)
-                    except Pyro4.errors.CommunicationError as e:
-                        print("Callback failed:", e)
+                run_callback(round_callback, ir, cur_avg)
 
         # divide total by rounds
         for d in avg_d:
@@ -2378,6 +2385,8 @@ class AcquireMixin:
         start_src="internal",
         progress=True,
         remove_offset=True,
+        round_callback=None,
+        callback_period=100,
     ):
         """Acquire data using the decimating readout.
 
@@ -2470,6 +2479,11 @@ class AcquireMixin:
                         ).reshape((*self.loop_dims, ro["trigs"], 2))
                     )
                 )
+            # callback
+            if round_callback is not None and (
+                (ir + 1) % callback_period == 0 or ir == soft_avgs - 1
+            ):
+                run_callback(round_callback, ir)
 
         onetrig = all([ro["trigs"] == 1 for ro in self.ro_chs.values()])
 
