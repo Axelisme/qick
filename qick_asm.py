@@ -2039,6 +2039,8 @@ class AcquireMixin:
                     reads_per_shot=self.reads_per_shot,
                 )
                 while count < total_count:
+                    if hasattr(self, "_handle_early_stop"):
+                        self._handle_early_stop()
                     new_data = obtain(soc.poll_data())
                     for new_points, (d, s) in new_data:
                         for ii, nreads in enumerate(self.reads_per_shot):
@@ -2462,6 +2464,8 @@ class AcquireMixin:
 
             count = 0
             while count < total_count:
+                if hasattr(self, "_handle_early_stop"):
+                    self._handle_early_stop()
                 count = soc.get_tproc_counter(addr=self.counter_addr)
 
             for ii, (ch, ro) in enumerate(self.ro_chs.items()):
