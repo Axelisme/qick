@@ -3,8 +3,10 @@ Several helper classes for writing qubit experiments.
 """
 
 from typing import List, Union
+
 import numpy as np
-from .asm_v1 import QickProgram, AcquireProgram, QickRegister, QickRegisterManagerMixin
+
+from .asm_v1 import AcquireProgram, QickProgram, QickRegister, QickRegisterManagerMixin
 
 
 class AveragerProgram(AcquireProgram):
@@ -82,7 +84,6 @@ class AveragerProgram(AcquireProgram):
         readouts_per_experiment=None,
         save_experiments=None,
         ret_std=False,
-        round_callback=None,
         **kwargs,
     ):
         """
@@ -118,7 +119,6 @@ class AveragerProgram(AcquireProgram):
             soc,
             soft_avgs=self.soft_avgs,
             ret_std=ret_std,
-            round_callback=round_callback,
             **kwargs,
         )
         if ret_std:
@@ -286,7 +286,6 @@ class RAveragerProgram(AcquireProgram):
         readouts_per_experiment=None,
         save_experiments=None,
         ret_std=False,
-        round_callback=None,
         **kwargs,
     ):
         """
@@ -322,7 +321,6 @@ class RAveragerProgram(AcquireProgram):
             soc,
             soft_avgs=self.soft_avgs,
             ret_std=ret_std,
-            round_callback=round_callback,
             **kwargs,
         )
         if ret_std:

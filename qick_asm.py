@@ -30,38 +30,6 @@ from .helpers import (
 logger = logging.getLogger(__name__)
 
 
-fail_callback = None
-callback_fail_count = 0
-
-
-def run_callback(callback, *args, **kwargs):
-    import Pyro4
-
-    global fail_callback, callback_fail_count
-
-    if callable(callback):
-        # local callback
-        callback(*args, **kwargs)
-    else:
-        # remote callback
-        if fail_callback is not callback:
-            fail_callback = None
-            callback_fail_count = 0  # reset the failure counter
-
-        callback._pyroTimeout = 1.0  # s
-        if callback_fail_count <= 5:
-            try:
-                callback.oneway_callback(*args, **kwargs)
-                fail_callback = None
-                callback_fail_count = 0
-            except Pyro4.errors.CommunicationError as e:  # type: ignore
-                print("Callback failed:", e)
-                fail_callback = callback
-                callback_fail_count += 1
-        else:
-            print("Too many callback failures, skip this callback")
-
-
 class QickConfig:
     """Uses the QICK configuration to convert frequencies and clock delays.
     If running on the QICK, you don't need to use this class - the QickSoc class has all of the same methods.
@@ -2144,7 +2112,7 @@ class AcquireMixin:
                 ir % callback_period == 0 or ir == soft_avgs - 1
             ):
                 cur_avg = [d / (ir + 1) for d in avg_d]
-                run_callback(round_callback, ir, cur_avg)
+                round_callback(ir, cur_avg)
 
         # divide total by rounds
         for d in avg_d:
@@ -2504,7 +2472,7 @@ class AcquireMixin:
             if round_callback is not None and (
                 ir % callback_period == 0 or ir == soft_avgs - 1
             ):
-                run_callback(round_callback, ir)
+                round_callback(ir)
 
         onetrig = all([ro["trigs"] == 1 for ro in self.ro_chs.values()])
 
