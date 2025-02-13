@@ -30,19 +30,36 @@ from .helpers import (
 logger = logging.getLogger(__name__)
 
 
+fail_callback = None
+callback_fail_count = 0
+
+
 def run_callback(callback, *args, **kwargs):
     import Pyro4
+
+    global fail_callback, callback_fail_count
 
     if callable(callback):
         # local callback
         callback(*args, **kwargs)
     else:
         # remote callback
+        if fail_callback is not callback:
+            fail_callback = None
+            callback_fail_count = 0  # reset the failure counter
+
         callback._pyroTimeout = 1.0  # s
-        try:
-            callback.oneway_callback(*args, **kwargs)
-        except Pyro4.errors.CommunicationError as e:
-            print("Callback failed:", e)
+        if callback_fail_count <= 5:
+            try:
+                callback.oneway_callback(*args, **kwargs)
+                fail_callback = None
+                callback_fail_count = 0
+            except Pyro4.errors.CommunicationError as e:  # type: ignore
+                print("Callback failed:", e)
+                fail_callback = callback
+                callback_fail_count += 1
+        else:
+            print("Too many callback failures, skip this callback")
 
 
 class QickConfig:
