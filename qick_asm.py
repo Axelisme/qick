@@ -2124,9 +2124,9 @@ class AcquireMixin:
 
             # callback
             if round_callback is not None and (
-                (ir + 1) % callback_period == 0 or ir == soft_avgs - 1
+                ir % callback_period == 0 or ir == soft_avgs - 1
             ):
-                cur_avg = [d / max(1, ir) for d in avg_d]
+                cur_avg = [d / (ir + 1) for d in avg_d]
                 run_callback(round_callback, ir, cur_avg)
 
         # divide total by rounds
@@ -2485,7 +2485,7 @@ class AcquireMixin:
                 )
             # callback
             if round_callback is not None and (
-                (ir + 1) % callback_period == 0 or ir == soft_avgs - 1
+                ir % callback_period == 0 or ir == soft_avgs - 1
             ):
                 run_callback(round_callback, ir)
 
