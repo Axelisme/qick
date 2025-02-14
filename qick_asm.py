@@ -1935,7 +1935,6 @@ class AcquireMixin:
         remove_offset=True,
         ret_std=False,
         round_callback=None,
-        callback_period=100,
     ):
         """Acquire data using the accumulated readout.
 
@@ -2108,11 +2107,8 @@ class AcquireMixin:
                         std2_d[ii] += d**2 + s**2
 
             # callback
-            if round_callback is not None and (
-                ir % callback_period == 0 or ir == soft_avgs - 1
-            ):
-                cur_avg = [d / (ir + 1) for d in avg_d]
-                round_callback(ir, cur_avg)
+            if round_callback is not None:
+                round_callback(ir, avg_d)
 
         # divide total by rounds
         for d in avg_d:
@@ -2373,7 +2369,6 @@ class AcquireMixin:
         progress=True,
         remove_offset=True,
         round_callback=None,
-        callback_period=100,
     ):
         """Acquire data using the decimating readout.
 
@@ -2469,9 +2464,7 @@ class AcquireMixin:
                     )
                 )
             # callback
-            if round_callback is not None and (
-                ir % callback_period == 0 or ir == soft_avgs - 1
-            ):
+            if round_callback is not None:
                 round_callback(ir)
 
         onetrig = all([ro["trigs"] == 1 for ro in self.ro_chs.values()])
