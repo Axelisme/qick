@@ -1838,6 +1838,8 @@ class AcquireMixin:
         # shot-by-shot threshold classification
         self.shots = None
 
+        self.early_stop = False
+
     def _init_declarations(self):
         super()._init_declarations()
 
@@ -1923,9 +1925,6 @@ class AcquireMixin:
         """
         return self.shots
 
-    def should_early_stop(self):
-        return False
-
     def acquire(
         self,
         soc,
@@ -1976,6 +1975,9 @@ class AcquireMixin:
             dimensions for a simple averaging program: (n_ch, n_reads, 2)
             dimensions for a program with multiple expts/steps: (n_ch, n_reads, n_expts, 2)
         """
+
+        self.early_stop = False
+
         # don't load memories now, we'll do that later
         self.config_all(soc, load_pulses=load_pulses, load_mem=False)
 
@@ -2025,10 +2027,7 @@ class AcquireMixin:
                     ch_list=list(self.ro_chs),
                     reads_per_shot=self.reads_per_shot,
                 )
-                while count < total_count:
-                    if self.should_early_stop():
-                        break  # early stop
-
+                while count < total_count and not self.early_stop:
                     new_data = obtain(soc.poll_data())
                     for new_points, (d, s) in new_data:
                         for ii, nreads in enumerate(self.reads_per_shot):
@@ -2103,7 +2102,7 @@ class AcquireMixin:
                         sum2_d[ii] += d**2 + s**2
 
             # early stop
-            if self.should_early_stop():
+            if self.early_stop:
                 soft_avgs = ir + 1  # set to the current round
                 break
 
@@ -2396,6 +2395,8 @@ class AcquireMixin:
             multi-rep or multi-read: (n_reps*n_reads, length, 2)
             multi-rep and multi-read: (n_reps, n_reads, length, 2)
         """
+        self.early_stop = False
+
         # don't load memories now, we'll do that later
         self.config_all(soc, load_pulses=load_pulses, load_mem=False)
 
@@ -2445,7 +2446,7 @@ class AcquireMixin:
 
             count = 0
             while count < total_count:
-                if self.should_early_stop():
+                if self.early_stop:
                     return []  # directly return empty list if early stop
 
                 count = soc.get_tproc_counter(addr=self.counter_addr)
@@ -2487,4 +2488,5 @@ class AcquireMixin:
                 else:
                     d_reshaped = d_avg.reshape(total_count, ro["trigs"], -1, 2)
                 result.append(d_reshaped)
+
         return result
