@@ -1923,6 +1923,9 @@ class AcquireMixin:
         """
         return self.shots
 
+    def should_early_stop(self):
+        return False
+
     def acquire(
         self,
         soc,
@@ -1934,7 +1937,7 @@ class AcquireMixin:
         progress=True,
         remove_offset=True,
         ret_std=False,
-        round_callback=None,
+        callback=None,
     ):
         """Acquire data using the accumulated readout.
 
@@ -2005,8 +2008,8 @@ class AcquireMixin:
                 hidereps = False
 
         # avg_d doesn't have a specific shape here, so that it's easier for child programs to write custom _average_buf
-        avg_d = None
-        std2_d = None
+        sum_d = None
+        sum2_d = None
         for ir in tqdm(range(soft_avgs), disable=hiderounds):
             # Configure and enable buffer capture.
             self.config_bufs(soc, enable_avg=True, enable_buf=False)
@@ -2023,8 +2026,9 @@ class AcquireMixin:
                     reads_per_shot=self.reads_per_shot,
                 )
                 while count < total_count:
-                    if hasattr(self, "_handle_early_stop"):
-                        self._handle_early_stop()
+                    if self.should_early_stop():
+                        break  # early stop
+
                     new_data = obtain(soc.poll_data())
                     for new_points, (d, s) in new_data:
                         for ii, nreads in enumerate(self.reads_per_shot):
@@ -2041,23 +2045,15 @@ class AcquireMixin:
                                 )
                             # use reshape to view the acc_buf array in a shape that matches the raw data
                             # self.acc_buf[ii].reshape((-1,2))[count*nreads:(count+new_points)*nreads] = d[ii]
+                            c_start = count * nreads
+                            c_end = (count + new_points) * nreads
+                            buf1d = self.acc_buf[ii].reshape((-1, 2))
                             try:
-                                self.acc_buf[ii].reshape((-1, 2))[
-                                    count * nreads : (count + new_points) * nreads
-                                ] = d[ii]
+                                buf1d[c_start:c_end] = d[ii]
                             except Exception as e:
-                                print(
-                                    count, new_points, nreads, d[ii].shape, total_count
-                                )
                                 print(e)
-                                shape = np.shape(
-                                    self.acc_buf[ii].reshape((-1, 2))[
-                                        count * nreads : (count + new_points) * nreads
-                                    ]
-                                )
-                                self.acc_buf[ii].reshape((-1, 2))[
-                                    count * nreads : (count + new_points) * nreads
-                                ] = d[ii][: shape[0]]
+                                num = buf1d[c_start:c_end].shape[0]
+                                buf1d[c_start:c_end] = d[ii][:num]
                         count += new_points
                         self.stats.append(s)
                         pbar.update(new_points)
@@ -2093,31 +2089,36 @@ class AcquireMixin:
                 )
 
             # sum over rounds axis
-            if avg_d is None:
-                avg_d = round_d
+            if sum_d is None:
+                sum_d = round_d
             else:
                 for ii, d in enumerate(round_d):
-                    avg_d[ii] += d
+                    sum_d[ii] += d
 
             if ret_std:
-                if std2_d is None:
-                    std2_d = [d**2 + s**2 for d, s in zip(round_d, round_std)]
+                if sum2_d is None:
+                    sum2_d = [d**2 + s**2 for d, s in zip(round_d, round_std)]
                 else:
                     for ii, (d, s) in enumerate(zip(round_d, round_std)):
-                        std2_d[ii] += d**2 + s**2
+                        sum2_d[ii] += d**2 + s**2
+
+            # early stop
+            if self.should_early_stop():
+                soft_avgs = ir + 1  # set to the current round
+                break
 
             # callback
-            if round_callback is not None:
-                round_callback(ir, avg_d)
+            if callback is not None:
+                if ret_std:
+                    callback(ir, sum_d, sum2_d)
+                callback(ir, sum_d)
 
         # divide total by rounds
-        for d in avg_d:
-            d /= soft_avgs
+        avg_d = [d / soft_avgs for d in sum_d]
 
         if ret_std:
-            for i in range(len(std2_d)):
-                std2_d[i] = np.sqrt(std2_d[i] / soft_avgs - avg_d[i] ** 2)
-            return avg_d, std2_d
+            std_d = [np.sqrt(x2 / soft_avgs - u**2) for x2, u in zip(sum2_d, avg_d)]
+            return avg_d, std_d
         else:
             return avg_d
 
@@ -2368,7 +2369,7 @@ class AcquireMixin:
         start_src="internal",
         progress=True,
         remove_offset=True,
-        round_callback=None,
+        callback=None,
     ):
         """Acquire data using the decimating readout.
 
@@ -2444,8 +2445,9 @@ class AcquireMixin:
 
             count = 0
             while count < total_count:
-                if hasattr(self, "_handle_early_stop"):
-                    self._handle_early_stop()
+                if self.should_early_stop():
+                    return []  # directly return empty list if early stop
+
                 count = soc.get_tproc_counter(addr=self.counter_addr)
 
             for ii, (ch, ro) in enumerate(self.ro_chs.items()):
@@ -2464,8 +2466,8 @@ class AcquireMixin:
                     )
                 )
             # callback
-            if round_callback is not None:
-                round_callback(ir)
+            if callback is not None:
+                callback(ir)
 
         onetrig = all([ro["trigs"] == 1 for ro in self.ro_chs.values()])
 
